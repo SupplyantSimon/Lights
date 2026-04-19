@@ -7,10 +7,10 @@
     "platform": "smart_life"
   },
   "hotkeys": {
-    "allOn": "b",
-    "allOff": "c",
-    "partyMode": "d",
-    "movieMode": "e",
+    "allOn": "f13",
+    "allOff": "f14",
+    "partyMode": "f15",
+    "movieMode": "f16",
     "monkeyToggle": "f17",
     "bigboyToggle": "f18",
     "colorCycle": "f19",
