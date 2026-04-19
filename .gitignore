@@ -1,0 +1,19 @@
+# Build artifacts
+.build/
+*.xcodeproj
+*.xcworkspace
+
+# App bundles
+*.app
+
+# User data
+.DS_Store
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets (user should add their actual API key)
+# HueControl/HueConfig.swift

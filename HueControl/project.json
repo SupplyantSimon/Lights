@@ -1,0 +1,7 @@
+{
+  "bundleIdentifier": "com.simonm.huecontrol",
+  "bundleVersion": "1.0.0",
+  "minimumOSVersion": "12.0",
+  "productName": "Hue Control",
+  "organizationName": "SimonM"
+}

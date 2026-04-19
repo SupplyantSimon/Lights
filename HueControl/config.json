@@ -1,0 +1,30 @@
+{
+  "bridgeIP": "192.168.50.228",
+  "apiKey": "z4JUHYPcL853yfrX-vk5rhXP6LQ-UDadiYQfnPAp",
+  "tuya": {
+    "username": "simon@supplyant.com",
+    "region": "eu",
+    "platform": "smart_life"
+  },
+  "hotkeys": {
+    "allOn": "b",
+    "allOff": "c",
+    "partyMode": "d",
+    "movieMode": "e",
+    "monkeyToggle": "f17",
+    "bigboyToggle": "f18",
+    "colorCycle": "f19",
+    "voiceMode": "f20"
+  },
+  "colors": [
+    {"name": "White", "hue": 0, "sat": 0},
+    {"name": "Red", "hue": 0, "sat": 254},
+    {"name": "Orange", "hue": 5461, "sat": 254},
+    {"name": "Yellow", "hue": 12750, "sat": 254},
+    {"name": "Green", "hue": 21845, "sat": 254},
+    {"name": "Cyan", "hue": 32767, "sat": 254},
+    {"name": "Blue", "hue": 43690, "sat": 254},
+    {"name": "Purple", "hue": 56000, "sat": 254},
+    {"name": "Pink", "hue": 60000, "sat": 200}
+  ]
+}
