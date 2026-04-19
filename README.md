@@ -1,118 +1,186 @@
-# Hue Control - macOS Menubar App
+# Simon's Lights - macOS Menubar App
 
-A sleek macOS menubar app to control your Philips Hue lights. Perfect for macro pad keyboards!
-
-![Hue Control](screenshot.png)
+A macOS menubar app to control all your lights: Hue lights (Unit, TV Left, BigBoy) + Monkey Tuya light. With macro pad support, voice control, and a color picker!
 
 ## Features
 
 - 🎛️ **Menubar Access** — Always one click away
-- 💡 **Quick Actions** — All On, All Off, Party Mode, Warm White
-- ⌨️ **Macro Pad Support** — Global hotkeys for F13-F16
-- 🔄 **Live Status** — See light states in real-time
-- 🎨 **Native SwiftUI** — Feels like a real Mac app
+- 💡 **Quick Actions** — All On, All Off, Party Mode, Movie Mode
+- 🎨 **Color Picker** — 9 preset colors, click or cycle through
+- 🐵 **Monkey Light** — Tuya/Smart Life integration
+- 🎤 **Voice Control** — Say commands like "All on", "Party", "Blue"
+- ⌨️ **Macro Pad Support** — Global hotkeys (B, C, D, E + F-keys)
+- 🔄 **Live Status** — See all light states in real-time
 
 ## Requirements
 
 - macOS 12.0 (Monterey) or later
 - Philips Hue Bridge on your network
-- Xcode 13+ (to build)
+- Swift/Xcode Command Line Tools
+- Python 3 (for Monkey light control)
 
-## Setup
+## Quick Start
 
-### 1. Get Your Hue Bridge API Key
+### 1. Clone the Repo
 
-Run the setup script:
+```bash
+git clone https://github.com/simonm/simons-lights.git
+cd simons-lights
+```
+
+Or download and extract the bundle.
+
+### 2. Set Up Environment
+
+Add to your `~/.zshrc`:
+
+```bash
+export TUYA_PASSWORD="your-tuya-password"
+```
+
+Then reload:
+
+```bash
+source ~/.zshrc
+```
+
+### 3. Build the App
+
+```bash
+chmod +x build.sh
+./build.sh
+```
+
+This creates "Simon's Lights.app" in the HueControl folder.
+
+### 4. Install
+
+```bash
+cp -r "HueControl/Simon's Lights.app" /Applications/
+```
+
+Or just run it directly:
+
+```bash
+open "HueControl/Simon's Lights.app"
+```
+
+## Macro Pad Setup
+
+Edit `HueControl/config.json` to customize hotkeys:
+
+```json
+{
+  "hotkeys": {
+    "allOn": "b",
+    "allOff": "c",
+    "partyMode": "d",
+    "movieMode": "e",
+    "monkeyToggle": "f17",
+    "bigboyToggle": "f18",
+    "colorCycle": "f19",
+    "voiceMode": "f20"
+  }
+}
+```
+
+Supported keys: a-z, 0-9, f1-f20, left, right, up, down, space, return, tab
+
+## Voice Commands
+
+Press the mic button or F20, then say:
+
+- **"All on"** / **"Lights on"** — Turn everything on
+- **"All off"** / **"Lights off"** — Turn everything off
+- **"Party"** — Party mode (multi-color)
+- **"Movie"** / **"Dim"** — Dim all lights
+- **"Monkey on"** / **"Monkey off"** — Toggle Monkey light
+- **"BigBoy on"** / **"BigBoy off"** — Toggle BigBoy light
+- **"White"** / **"Red"** / **"Blue"** / **"Green"** — Set color
+
+## Lights
+
+| Light | Type | Location |
+|-------|------|----------|
+| Unit | Hue | Right side |
+| TV Left | Hue | Left side |
+| BigBoy | Hue | BigBoy |
+| Monkey | Tuya | Monkey |
+
+## Configuration
+
+Edit `HueControl/config.json`:
+
+```json
+{
+  "bridgeIP": "192.168.50.228",
+  "apiKey": "your-hue-api-key",
+  "tuya": {
+    "username": "simon@supplyant.com",
+    "region": "eu",
+    "platform": "smart_life"
+  },
+  "colors": [
+    {"name": "White", "hue": 0, "sat": 0},
+    {"name": "Red", "hue": 0, "sat": 254},
+    ...
+  ]
+}
+```
+
+## Development
+
+### Project Structure
+
+```
+SimonsLights/
+├── HueControl/
+│   ├── HueControlApp.swift    # Main SwiftUI app
+│   ├── config.json            # User configuration
+│   ├── control_monkey.py      # Tuya light controller
+│   ├── Info.plist            # App metadata
+│   └── Package.swift         # Swift Package Manager
+├── build.sh                  # Build script
+└── README.md
+```
+
+### Building Manually
 
 ```bash
 cd HueControl
-python3 setup_bridge.py
+swift build -c release
 ```
 
-Then press the **physical button** on your Hue Bridge when prompted.
+### Adding Voice Commands
 
-### 2. Update the Config
-
-Open `HueControl/HueControlApp.swift` and update:
+Edit `handleVoiceCommand()` in `HueControlApp.swift`:
 
 ```swift
-struct HueConfig {
-    static let bridgeIP = "192.168.50.228"  // Your bridge IP
-    static let apiKey = "YOUR-API-KEY-HERE" // From setup script
+if lower.contains("your command") {
+    // Do something
+    showNotification(title: "Voice", message: "Did something")
 }
 ```
 
-### 3. Build & Run
+## Troubleshooting
+
+### "App is damaged" error
+
+Run:
 
 ```bash
-swift build
-swift run
+xattr -cr "/Applications/Simon's Lights.app"
+codesign --force --deep --sign - "/Applications/Simon's Lights.app"
 ```
 
-Or open in Xcode and build with ⌘+R
+### Microphone permission denied
 
-## Macro Pad Hotkeys
+Go to System Preferences → Security & Privacy → Microphone → Enable "Simon's Lights"
 
-The app registers global hotkeys for:
+### Monkey light not working
 
-| Key | Action |
-|-----|--------|
-| **F13** | All Lights On |
-| **F14** | All Lights Off |
-| **F15** | Party Mode 🎉 |
-| **F16** | Warm White |
+Check that `control_monkey.py` is in the same folder as the app, and that `TUYA_PASSWORD` is set in your environment.
 
-Map these in your macro pad software to control lights instantly!
+## License
 
-## Customization
-
-### Adding More Hotkeys
-
-Edit `setupHotkeys()` in `HueControlApp.swift`:
-
-```swift
-(key: 0x70, action: { [weak self] in self?.hueService.someCustomAction() })
-```
-
-Common key codes:
-- F13: `0x69`
-- F14: `0x6B`
-- F15: `0x71`
-- F16: `0x6A`
-- F17: `0x40`
-- F18: `0x4F`
-- F19: `0x50`
-
-### Adding Scenes
-
-Add new methods to `HueService`:
-
-```swift
-func movieMode() {
-    lights.forEach { light in
-        setLightState(id: light.id, on: true, brightness: 50)
-        // Set warm orange color
-    }
-}
-```
-
-## Architecture
-
-```
-HueControl/
-├── HueControlApp.swift    # Main app + hotkey handling
-├── Info.plist             # App configuration
-└── setup_bridge.py        # Bridge discovery & auth
-```
-
-## Future Ideas
-
-- [ ] Custom scenes editor
-- [ ] Brightness sliders
-- [ ] Color picker
-- [ ] Schedule/automation
-- [ ] Apple Shortcuts integration
-
----
-
-Built with ❤️ for SimonM
+MIT — Built with ❤️ for SimonM
