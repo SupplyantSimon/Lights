@@ -30,11 +30,19 @@ class AudioAnalyzer: ObservableObject {
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
         
+        print("🎵 Input format: \(format)")
+        print("🎵 Input available: \(inputNode.isInputFormatBusSupported(0, format: format))")
+        
         // Setup FFT
         fftSetup = vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(fftSize), .FORWARD)
         
         inputNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(fftSize), format: format) { [weak self] buffer, _ in
-            self?.processAudioBuffer(buffer)
+            guard let self = self else { return }
+            let samples = buffer.frameLength
+            if samples > 0 {
+                print("🎵 Got \(samples) audio samples")
+                self.processAudioBuffer(buffer)
+            }
         }
         
         do {
@@ -754,35 +762,40 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundColor(.pink)
                         Spacer()
+                        // Debug: show raw values
+                        Text(String(format: "B:%.2f M:%.2f T:%.2f", audioAnalyzer.bassLevel, audioAnalyzer.midLevel, audioAnalyzer.trebleLevel))
+                            .font(.system(size: 8, design: .monospaced))
+                            .foregroundColor(.gray)
                     }
                     
                     HStack(spacing: 8) {
                         VStack {
                             Rectangle()
                                 .fill(Color.red)
-                                .frame(width: 20, height: CGFloat(audioAnalyzer.bassLevel * 40))
+                                .frame(width: 24, height: max(CGFloat(audioAnalyzer.bassLevel * 50), 4))
                             Text("Bass")
                                 .font(.system(size: 8))
                         }
                         VStack {
                             Rectangle()
                                 .fill(Color.green)
-                                .frame(width: 20, height: CGFloat(audioAnalyzer.midLevel * 40))
+                                .frame(width: 24, height: max(CGFloat(audioAnalyzer.midLevel * 50), 4))
                             Text("Mid")
                                 .font(.system(size: 8))
                         }
                         VStack {
                             Rectangle()
                                 .fill(Color.blue)
-                                .frame(width: 20, height: CGFloat(audioAnalyzer.trebleLevel * 40))
+                                .frame(width: 24, height: max(CGFloat(audioAnalyzer.trebleLevel * 50), 4))
                             Text("Treble")
                                 .font(.system(size: 8))
                         }
                         Spacer()
                     }
-                    .frame(height: 50)
+                    .frame(height: 60)
                 }
                 .padding(.horizontal)
+                .background(Color.pink.opacity(0.05))
             }
             
             Divider()
