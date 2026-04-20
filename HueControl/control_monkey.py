@@ -8,6 +8,8 @@ import json
 import sys
 import os
 
+import time
+
 # Device config
 DEVICE_ID = "bf99f8444f9fa912130av1"
 BASE_URL = "https://px1.tuyaeu.com/homeassistant/"
@@ -35,7 +37,45 @@ def api_post(url, data, headers=None, is_json=True):
         return json.loads(resp.read().decode("utf-8"))
 
 
+TOKEN_CACHE_FILE = os.path.expanduser("~/.simonslights/.tuya_token")
+TOKEN_CACHE_MAX_AGE = 3000  # 50 minutes (tokens usually last 1 hour)
+
+def load_cached_token():
+    """Load cached token if it exists and isn't too old."""
+    try:
+        if not os.path.exists(TOKEN_CACHE_FILE):
+            return None
+        
+        mtime = os.path.getmtime(TOKEN_CACHE_FILE)
+        age = time.time() - mtime
+        
+        if age > TOKEN_CACHE_MAX_AGE:
+            return None
+        
+        with open(TOKEN_CACHE_FILE, 'r') as f:
+            token = f.read().strip()
+            if token:
+                return token
+    except Exception:
+        pass
+    return None
+
+def save_cached_token(token):
+    """Save token to cache file."""
+    try:
+        os.makedirs(os.path.dirname(TOKEN_CACHE_FILE), exist_ok=True)
+        with open(TOKEN_CACHE_FILE, 'w') as f:
+            f.write(token)
+    except Exception:
+        pass
+
 def get_token():
+    # Try cached token first
+    cached = load_cached_token()
+    if cached:
+        return cached
+    
+    # Get new token
     url = BASE_URL + "auth.do"
     data = {
         "userName": USERNAME,
@@ -47,7 +87,10 @@ def get_token():
     result = api_post(url, data, is_json=False)
     if "access_token" not in result:
         raise RuntimeError(f"Auth failed: {result}")
-    return result["access_token"]
+    
+    token = result["access_token"]
+    save_cached_token(token)
+    return token
 
 
 def get_device_state(token):
