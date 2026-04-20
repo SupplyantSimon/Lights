@@ -82,7 +82,7 @@ def get_token():
         "password": PASSWORD,
         "countryCode": COUNTRY_CODE,
         "bizType": PLATFORM,
-        "from": "tuya",
+        "from": PLATFORM,  # Use platform (smart_life or tuya)
     }
     result = api_post(url, data, is_json=False)
     if "access_token" not in result:
