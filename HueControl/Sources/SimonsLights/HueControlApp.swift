@@ -127,8 +127,10 @@ class AppConfig: Codable, ObservableObject {
     let tuya: TuyaConfig
     let hotkeys: HotkeyConfig
     let colors: [ColorPreset]
+    let lights: [String]
     
-    init(bridgeIP: String, apiKey: String, tuya: TuyaConfig, hotkeys: HotkeyConfig, colors: [ColorPreset]) {
+    init(bridgeIP: String, apiKey: String, tuya: TuyaConfig, hotkeys: HotkeyConfig, colors: [ColorPreset], lights: [String]) {
+        self.lights = lights
         self.bridgeIP = bridgeIP
         self.apiKey = apiKey
         self.tuya = tuya
@@ -190,7 +192,8 @@ class ConfigLoader {
                 ColorPreset(name: "Red", hue: 0, sat: 254),
                 ColorPreset(name: "Green", hue: 21845, sat: 254),
                 ColorPreset(name: "Blue", hue: 43690, sat: 254)
-            ]
+            ],
+            lights: ["Unit", "TV Left", "BigBoy"]
         )
     }
 }
@@ -387,7 +390,7 @@ class HueService: ObservableObject {
                     
                     for (id, lightData) in lightsDict {
                         let light = HueLight(id: id, name: lightData.name, state: lightData.state)
-                        if !seenNames.contains(light.name) {
+                        if !seenNames.contains(light.name) && self?.allowedLightNames.contains(light.name) == true {
                             uniqueLights.append(light)
                             seenNames.insert(light.name)
                         }
@@ -489,7 +492,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         config = ConfigLoader.load()
         
-        hueService = HueService(bridgeIP: config.bridgeIP, apiKey: config.apiKey)
+        hueService = HueService(bridgeIP: config.bridgeIP, apiKey: config.apiKey, allowedLights: config.lights)
         monkeyService = MonkeyService(config: config.tuya)
         audioAnalyzer = AudioAnalyzer()
         
