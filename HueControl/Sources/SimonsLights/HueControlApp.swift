@@ -577,11 +577,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func toggleMusicMode() {
+        print("🎵 toggleMusicMode called")
         isMusicMode.toggle()
+        print("🎵 isMusicMode = \(isMusicMode)")
         if isMusicMode {
+            print("🎵 Starting audio analyzer...")
             audioAnalyzer.startListening()
             showNotification(title: "🎵 Music Mode", message: "ON - Lights reacting to audio")
         } else {
+            print("🎵 Stopping audio analyzer...")
             audioAnalyzer.stopListening()
             showNotification(title: "🎵 Music Mode", message: "OFF")
         }
