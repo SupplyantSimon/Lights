@@ -136,12 +136,6 @@ class AppConfig: Codable, ObservableObject {
         self.colors = colors
     }
 }
-    let bridgeIP: String
-    let apiKey: String
-    let tuya: TuyaConfig
-    let hotkeys: HotkeyConfig
-    let colors: [ColorPreset]
-}
 
 struct TuyaConfig: Codable {
     let username: String
