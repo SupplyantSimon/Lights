@@ -66,45 +66,6 @@ class AudioAnalyzer: ObservableObject {
             print("❌ Audio setup error: \(error)")
         }
     }
-        
-        audioEngine = AVAudioEngine()
-        guard let audioEngine = audioEngine else { 
-            print("❌ Failed to create audio engine")
-            return 
-        }
-        
-        let inputNode = audioEngine.inputNode
-        print("🎵 Got input node: \(inputNode)")
-        
-        let format = inputNode.outputFormat(forBus: 0)
-        print("🎵 Input format: \(format), channels: \(format.channelCount), sampleRate: \(format.sampleRate)")
-        
-        // Check if we have permission by trying to get input format
-        if format.channelCount == 0 {
-            print("❌ No audio input available - check microphone permissions")
-            return
-        }
-        
-        // Setup FFT
-        fftSetup = vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(fftSize), .FORWARD)
-        
-        inputNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(fftSize), format: format) { [weak self] buffer, _ in
-            guard let self = self else { return }
-            let samples = buffer.frameLength
-            if samples > 0 {
-                self.processAudioBuffer(buffer)
-            }
-        }
-        
-        do {
-            try audioEngine.start()
-            isListening = true
-            print("🎵 Music mode active - listening to audio")
-            
-        } catch {
-            print("❌ Audio setup error: \(error)")
-        }
-    }
     
     func stopListening() {
         audioEngine?.stop()
