@@ -212,6 +212,19 @@ struct LightState: Codable {
     var hue: Int? = nil
     var sat: Int? = nil
     var ct: Int? = nil
+    
+    enum CodingKeys: String, CodingKey {
+        case on, bri, hue, sat, ct
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        on = (try? container.decode(Bool.self, forKey: .on)) ?? false
+        bri = try? container.decode(Int.self, forKey: .bri)
+        hue = try? container.decode(Int.self, forKey: .hue)
+        sat = try? container.decode(Int.self, forKey: .sat)
+        ct = try? container.decode(Int.self, forKey: .ct)
+    }
 }
 
 struct HueLightData: Codable {
