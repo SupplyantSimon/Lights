@@ -1,4 +1,4 @@
-// swift-tools-version:5.5
+:// swift-tools-version:5.5
 import PackageDescription
 
 let package = Package(
@@ -20,7 +20,8 @@ let package = Package(
                 .define("DEBUG", .when(configuration: .debug))
             ],
             linkerSettings: [
-                .linkedFramework("Speech")
+                .linkedFramework("AVFoundation"),
+                .linkedFramework("Accelerate")
             ]
         )
     ]

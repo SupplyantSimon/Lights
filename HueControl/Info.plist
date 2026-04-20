@@ -30,8 +30,6 @@
         <true/>
     </dict>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Simon's Lights needs microphone access for voice control commands</string>
-    <key>NSSpeechRecognitionUsageDescription</key>
-    <string>Simon's Lights needs speech recognition to understand voice commands</string>
+    <string>Simon's Lights needs microphone access to listen to music and sync lights to the beat</string>
 </dict>
 </plist>

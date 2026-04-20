@@ -2,6 +2,136 @@ import SwiftUI
 import AppKit
 import HotKey
 import Speech
+import AVFoundation
+import Accelerate
+
+// MARK: - Audio Analyzer for Music Mode
+class AudioAnalyzer: ObservableObject {
+    @Published var isListening = false
+    @Published var bassLevel: Float = 0
+    @Published var midLevel: Float = 0
+    @Published var trebleLevel: Float = 0
+    @Published var beatDetected = false
+    
+    private var audioEngine: AVAudioEngine?
+    private var fftSetup: vDSP_DFT_Setup?
+    private let sampleRate: Double = 44100
+    private let fftSize = 1024
+    
+    var onBeat: (() -> Void)?
+    var onFrequencyUpdate: ((bass: Float, mid: Float, treble: Float) -> Void)?
+    
+    func startListening() {
+        guard !isListening else { return }
+        
+        let audioSession = AVAudioSession.sharedInstance()
+        
+        do {
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+            try audioSession.setActive(true)
+            
+            audioEngine = AVAudioEngine()
+            guard let audioEngine = audioEngine else { return }
+            
+            let inputNode = audioEngine.inputNode
+            let format = inputNode.outputFormat(forBus: 0)
+            
+            // Setup FFT
+            let log2n = vDSP_Length(log2(Float(fftSize)))
+            fftSetup = vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(fftSize), .FORWARD)
+            
+            inputNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(fftSize), format: format) { [weak self] buffer, _ in
+                self?.processAudioBuffer(buffer)
+            }
+            
+            try audioEngine.start()
+            isListening = true
+            print("🎵 Music mode active - listening to audio")
+            
+        } catch {
+            print("❌ Audio setup error: \(error)")
+        }
+    }
+    
+    func stopListening() {
+        audioEngine?.stop()
+        audioEngine?.inputNode.removeTap(onBus: 0)
+        audioEngine = nil
+        if let setup = fftSetup {
+            vDSP_DFT_DestroySetupD(setup)
+        }
+        isListening = false
+        print("🎵 Music mode stopped")
+    }
+    
+    private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
+        guard let channelData = buffer.floatChannelData?[0] else { return }
+        let frameLength = Int(buffer.frameLength)
+        
+        // Convert to array
+        var samples = Array(UnsafeBufferPointer(start: channelData, count: frameLength))
+        
+        // Apply Hanning window
+        var window = [Float](repeating: 0, count: fftSize)
+        vDSP_hann_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
+        vDSP_vmul(samples, 1, window, 1, &samples, 1, vDSP_Length(min(frameLength, fftSize)))
+        
+        // Perform FFT
+        var real = [Float](repeating: 0, count: fftSize / 2)
+        var imag = [Float](repeating: 0, count: fftSize / 2)
+        
+        samples.withUnsafeBufferPointer { samplesPtr in
+            real.withUnsafeMutableBufferPointer { realPtr in
+                imag.withUnsafeMutableBufferPointer { imagPtr in
+                    var splitComplex = DSPSplitComplex(realp: realPtr.baseAddress!, imagp: imagPtr.baseAddress!)
+                    vDSP_ctoz(<#DSPComplex#>, <#vDSP_Stride#>, <#DSPSplitComplex#>, <#vDSP_Stride#>, <#vDSP_Length#>)
+                }
+            }
+        }
+        
+        // Simplified frequency analysis (bass, mid, treble)
+        let bassRange = 0..<10      // ~0-430Hz
+        let midRange = 10..<100     // ~430-4300Hz  
+        let trebleRange = 100..<200 // ~4300-8600Hz
+        
+        var bass: Float = 0
+        var mid: Float = 0
+        var treble: Float = 0
+        
+        // Calculate magnitudes
+        for i in bassRange where i < samples.count {
+            bass += abs(samples[i])
+        }
+        for i in midRange where i < samples.count {
+            mid += abs(samples[i])
+        }
+        for i in trebleRange where i < samples.count {
+            treble += abs(samples[i])
+        }
+        
+        // Normalize
+        bass = min(bass / Float(bassRange.count) * 10, 1.0)
+        mid = min(mid / Float(midRange.count) * 5, 1.0)
+        treble = min(treble / Float(trebleRange.count) * 3, 1.0)
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.bassLevel = bass
+            self?.midLevel = mid
+            self?.trebleLevel = treble
+            
+            // Beat detection (bass threshold)
+            if bass > 0.7 && !(self?.beatDetected ?? false) {
+                self?.beatDetected = true
+                self?.onBeat?()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    self?.beatDetected = false
+                }
+            }
+            
+            self?.onFrequencyUpdate?(bass: bass, mid: mid, treble: treble)
+        }
+    }
+}
 
 // MARK: - Configuration
 struct AppConfig: Codable {
@@ -26,7 +156,7 @@ struct HotkeyConfig: Codable {
     let monkeyToggle: String
     let bigboyToggle: String
     let colorCycle: String
-    let voiceMode: String
+    let musicMode: String
 }
 
 struct ColorPreset: Codable, Identifiable {
@@ -58,8 +188,8 @@ class ConfigLoader {
             bridgeIP: "192.168.50.228",
             apiKey: "",
             tuya: TuyaConfig(username: "", region: "eu", platform: "smart_life"),
-            hotkeys: HotkeyConfig(allOn: "b", allOff: "c", partyMode: "d", movieMode: "e", 
-                                  monkeyToggle: "f17", bigboyToggle: "f18", colorCycle: "f19", voiceMode: "f20"),
+            hotkeys: HotkeyConfig(allOn: "f13", allOff: "f14", partyMode: "f15", movieMode: "f16", 
+                                  monkeyToggle: "f17", bigboyToggle: "f18", colorCycle: "f19", musicMode: "f20"),
             colors: [
                 ColorPreset(name: "White", hue: 0, sat: 0),
                 ColorPreset(name: "Red", hue: 0, sat: 254),
@@ -94,123 +224,7 @@ struct HueLightData: Codable {
     let state: LightState
 }
 
-// MARK: - Voice Command Recognizer
-class VoiceCommandRecognizer: NSObject, ObservableObject, SFSpeechRecognizerDelegate {
-    @Published var isListening = false
-    @Published var lastCommand: String = ""
-    @Published var lastError: String = ""
-    
-    private let speechRecognizer: SFSpeechRecognizer?
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var recognitionTask: SFSpeechRecognitionTask?
-    private let audioEngine = AVAudioEngine()
-    
-    var onCommand: ((String) -> Void)?
-    
-    override init() {
-        speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-GB"))
-        super.init()
-        speechRecognizer?.delegate = self
-        requestAuthorization()
-    }
-    
-    private func requestAuthorization() {
-        SFSpeechRecognizer.requestAuthorization { status in
-            DispatchQueue.main.async {
-                switch status {
-                case .authorized:
-                    print("🎤 Speech recognition authorized")
-                case .denied:
-                    self.lastError = "Speech recognition denied"
-                case .restricted:
-                    self.lastError = "Speech recognition restricted"
-                case .notDetermined:
-                    self.lastError = "Speech recognition not determined"
-                @unknown default:
-                    break
-                }
-            }
-        }
-        
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
-            if !granted {
-                DispatchQueue.main.async {
-                    self.lastError = "Microphone access denied"
-                }
-            }
-        }
-    }
-    
-    func startListening() {
-        guard !isListening else { return }
-        guard SFSpeechRecognizer.authorizationStatus() == .authorized else {
-            lastError = "Speech not authorized"
-            return
-        }
-        
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            
-            recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-            guard let recognitionRequest = recognitionRequest else { return }
-            
-            recognitionRequest.shouldReportPartialResults = false
-            
-            recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
-                guard let self = self else { return }
-                
-                if let error = error {
-                    self.lastError = error.localizedDescription
-                    self.stopListening()
-                    return
-                }
-                
-                if let result = result, result.isFinal {
-                    let text = result.bestTranscription.formattedString.lowercased()
-                    self.lastCommand = text
-                    self.onCommand?(text)
-                    self.stopListening()
-                }
-            }
-            
-            let inputNode = audioEngine.inputNode
-            let recordingFormat = inputNode.outputFormat(forBus: 0)
-            inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-                self.recognitionRequest?.append(buffer)
-            }
-            
-            audioEngine.prepare()
-            try audioEngine.start()
-            
-            isListening = true
-            
-            // Auto-stop after 5 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-                self?.stopListening()
-            }
-            
-        } catch {
-            lastError = "Audio engine error: \(error)"
-            stopListening()
-        }
-    }
-    
-    func stopListening() {
-        audioEngine.stop()
-        audioEngine.inputNode.removeTap(onBus: 0)
-        recognitionRequest?.endAudio()
-        recognitionRequest = nil
-        recognitionTask?.cancel()
-        recognitionTask = nil
-        isListening = false
-        
-        try? AVAudioSession.sharedInstance().setActive(false)
-    }
-}
-
-// MARK: - Monkey Light Service (Tuya)
+// MARK: - Monkey Light Service
 class MonkeyService: ObservableObject {
     @Published var isOn: Bool = false
     @Published var isLoading: Bool = false
@@ -318,7 +332,6 @@ class HueService: ObservableObject {
     
     private let baseURL: String
     
-    // Light name mappings for Simon's setup
     let rightLightName = "Unit"
     let leftLightName = "TV Left"
     let bigboyLightName = "BigBoy"
@@ -406,7 +419,7 @@ class HueService: ObservableObject {
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         
         URLSession.shared.dataTask(with: request) { [weak self] _, _, _ in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 self?.fetchLights()
             }
         }.resume()
@@ -418,16 +431,8 @@ class HueService: ObservableObject {
         }
     }
     
-    func setRightLightColor(hue: Int, saturation: Int) {
-        if let light = rightLight {
-            setLightState(id: light.id, on: true, hue: hue, saturation: saturation)
-        }
-    }
-    
-    func setLeftLightColor(hue: Int, saturation: Int) {
-        if let light = leftLight {
-            setLightState(id: light.id, on: true, hue: hue, saturation: saturation)
-        }
+    func setLightBrightness(id: String, brightness: Int) {
+        setLightState(id: id, brightness: brightness)
     }
     
     func partyMode() {
@@ -466,20 +471,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var popover: NSPopover!
     var hueService: HueService!
     var monkeyService: MonkeyService!
-    var voiceRecognizer: VoiceCommandRecognizer!
+    var audioAnalyzer: AudioAnalyzer!
     var config: AppConfig!
     var hotKeys: [HotKey] = []
     var currentColorIndex: Int = 0
+    var musicModeColor: Float = 0
+    var isMusicMode = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         config = ConfigLoader.load()
         
         hueService = HueService(bridgeIP: config.bridgeIP, apiKey: config.apiKey)
         monkeyService = MonkeyService(config: config.tuya)
-        voiceRecognizer = VoiceCommandRecognizer()
+        audioAnalyzer = AudioAnalyzer()
         
-        voiceRecognizer.onCommand = { [weak self] command in
-            self?.handleVoiceCommand(command)
+        // Setup audio callbacks
+        audioAnalyzer.onBeat = { [weak self] in
+            self?.handleMusicBeat()
+        }
+        audioAnalyzer.onFrequencyUpdate = { [weak self] bass, mid, treble in
+            self?.handleFrequencyUpdate(bass: bass, mid: mid, treble: treble)
         }
         
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -497,7 +508,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             rootView: ContentView()
                 .environmentObject(hueService)
                 .environmentObject(monkeyService)
-                .environmentObject(voiceRecognizer)
+                .environmentObject(audioAnalyzer)
                 .environmentObject(config)
         )
         
@@ -511,49 +522,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         monkeyService.fetchStatus()
     }
     
-    func handleVoiceCommand(_ command: String) {
-        print("🎤 Voice command: \(command)")
+    func handleMusicBeat() {
+        guard isMusicMode else { return }
         
-        let lower = command.lowercased()
+        // Pulse brightness on beat
+        let brightness = 150 + Int.random(in: 0...104)
+        hueService.lights.forEach { light in
+            hueService.setLightBrightness(id: light.id, brightness: brightness)
+        }
+    }
+    
+    func handleFrequencyUpdate(bass: Float, mid: Float, treble: Float) {
+        guard isMusicMode else { return }
         
-        if lower.contains("all on") || lower.contains("lights on") {
-            hueService.allOn()
-            showNotification(title: "Voice", message: "All lights on")
-        } else if lower.contains("all off") || lower.contains("lights off") {
-            hueService.allOff()
-            showNotification(title: "Voice", message: "All lights off")
-        } else if lower.contains("party") {
-            hueService.partyMode()
-            showNotification(title: "Voice", message: "Party mode!")
-        } else if lower.contains("movie") || lower.contains("dim") {
-            hueService.movieMode()
-            showNotification(title: "Voice", message: "Movie mode")
-        } else if lower.contains("monkey on") {
-            if !monkeyService.isOn { monkeyService.toggle() }
-            showNotification(title: "Voice", message: "Monkey on")
-        } else if lower.contains("monkey off") {
-            if monkeyService.isOn { monkeyService.toggle() }
-            showNotification(title: "Voice", message: "Monkey off")
-        } else if lower.contains("bigboy on") || lower.contains("big boy on") {
-            hueService.toggleBigBoy()
-            showNotification(title: "Voice", message: "BigBoy on")
-        } else if lower.contains("bigboy off") || lower.contains("big boy off") {
-            hueService.toggleBigBoy()
-            showNotification(title: "Voice", message: "BigBoy off")
-        } else if lower.contains("white") {
-            hueService.setAllLightsColor(hue: 0, saturation: 0)
-            showNotification(title: "Voice", message: "White lights")
-        } else if lower.contains("red") {
-            hueService.setAllLightsColor(hue: 0, saturation: 254)
-            showNotification(title: "Voice", message: "Red lights")
-        } else if lower.contains("blue") {
-            hueService.setAllLightsColor(hue: 43690, saturation: 254)
-            showNotification(title: "Voice", message: "Blue lights")
-        } else if lower.contains("green") {
-            hueService.setAllLightsColor(hue: 21845, saturation: 254)
-            showNotification(title: "Voice", message: "Green lights")
+        // Cycle color based on music
+        musicModeColor += 0.01 + (bass * 0.05)
+        if musicModeColor > 1.0 { musicModeColor -= 1.0 }
+        
+        let hue = Int(musicModeColor * 65535)
+        let saturation = 150 + Int(bass * 104)
+        
+        // Only update occasionally to avoid flooding
+        if Int(musicModeColor * 100) % 5 == 0 {
+            hueService.setAllLightsColor(hue: hue, saturation: saturation)
+        }
+    }
+    
+    func toggleMusicMode() {
+        isMusicMode.toggle()
+        if isMusicMode {
+            audioAnalyzer.startListening()
+            showNotification(title: "🎵 Music Mode", message: "ON - Lights reacting to audio")
         } else {
-            showNotification(title: "Voice", message: "Unknown: \(command)")
+            audioAnalyzer.stopListening()
+            showNotification(title: "🎵 Music Mode", message: "OFF")
         }
     }
     
@@ -597,7 +599,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             (config.hotkeys.monkeyToggle, { [weak self] in self?.monkeyService.toggle() }, "Monkey Toggle"),
             (config.hotkeys.bigboyToggle, { [weak self] in self?.hueService.toggleBigBoy() }, "BigBoy Toggle"),
             (config.hotkeys.colorCycle, { [weak self] in self?.cycleColor() }, "Color Cycle"),
-            (config.hotkeys.voiceMode, { [weak self] in self?.voiceRecognizer.startListening() }, "Voice Mode"),
+            (config.hotkeys.musicMode, { [weak self] in self?.toggleMusicMode() }, "Music Mode"),
         ]
         
         for configItem in hotkeyConfigs {
@@ -638,7 +640,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 struct ContentView: View {
     @EnvironmentObject var hueService: HueService
     @EnvironmentObject var monkeyService: MonkeyService
-    @EnvironmentObject var voiceRecognizer: VoiceCommandRecognizer
+    @EnvironmentObject var audioAnalyzer: AudioAnalyzer
     @EnvironmentObject var config: AppConfig
     @State private var currentColorIndex = 0
     
@@ -668,25 +670,27 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                // Voice button
-                Button(action: { voiceRecognizer.startListening() }) {
-                    Image(systemName: voiceRecognizer.isListening ? "mic.fill" : "mic")
+                // Music mode button
+                Button(action: { 
+                    if let delegate = NSApp.delegate as? AppDelegate {
+                        delegate.toggleMusicMode()
+                    }
+                }) {
+                    Image(systemName: audioAnalyzer.isListening ? "music.note" : "music.note.list")
                         .font(.title3)
-                        .foregroundColor(voiceRecognizer.isListening ? .red : .gray)
+                        .foregroundColor(audioAnalyzer.isListening ? .pink : .gray)
                         .overlay(
                             Group {
-                                if voiceRecognizer.isListening {
+                                if audioAnalyzer.isListening {
                                     Circle()
-                                        .stroke(Color.red, lineWidth: 2)
+                                        .stroke(Color.pink, lineWidth: 2)
                                         .frame(width: 32, height: 32)
-                                        .scaleEffect(1.2)
-                                        .opacity(0.5)
                                 }
                             }
                         )
                 }
                 .buttonStyle(PlainButtonStyle())
-                .help("Voice Control (\(config.hotkeys.voiceMode.uppercased()))")
+                .help("Music Mode (\(config.hotkeys.musicMode.uppercased()))")
                 
                 // Monkey indicator
                 Button(action: { monkeyService.toggle() }) {
@@ -704,7 +708,7 @@ struct ContentView: View {
                 .buttonStyle(PlainButtonStyle())
                 .help("Monkey")
                 
-                // BigBoy indicator (Hue light)
+                // BigBoy indicator
                 Button(action: { hueService.toggleBigBoy() }) {
                     Image(systemName: hueService.bigboyLight?.state.on == true ? "light.ribbon.fill" : "light.ribbon")
                         .font(.title3)
@@ -721,25 +725,41 @@ struct ContentView: View {
             }
             .padding()
             
-            // Voice status
-            if voiceRecognizer.isListening {
-                HStack {
-                    Image(systemName: "waveform")
-                        .foregroundColor(.red)
-                    Text("Listening...")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                    Spacer()
-                }
-                .padding(.horizontal)
-            }
-            
-            if !voiceRecognizer.lastCommand.isEmpty {
-                HStack {
-                    Text("Heard: \"\(voiceRecognizer.lastCommand)\"")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
+            // Music mode visualization
+            if audioAnalyzer.isListening {
+                VStack(spacing: 4) {
+                    HStack {
+                        Text("🎵 Music Mode Active")
+                            .font(.caption)
+                            .foregroundColor(.pink)
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 8) {
+                        VStack {
+                            Rectangle()
+                                .fill(Color.red)
+                                .frame(width: 20, height: CGFloat(audioAnalyzer.bassLevel * 40))
+                            Text("Bass")
+                                .font(.system(size: 8))
+                        }
+                        VStack {
+                            Rectangle()
+                                .fill(Color.green)
+                                .frame(width: 20, height: CGFloat(audioAnalyzer.midLevel * 40))
+                            Text("Mid")
+                                .font(.system(size: 8))
+                        }
+                        VStack {
+                            Rectangle()
+                                .fill(Color.blue)
+                                .frame(width: 20, height: CGFloat(audioAnalyzer.trebleLevel * 40))
+                            Text("Treble")
+                                .font(.system(size: 8))
+                        }
+                        Spacer()
+                    }
+                    .frame(height: 50)
                 }
                 .padding(.horizontal)
             }
@@ -820,7 +840,7 @@ struct ContentView: View {
             }
             .listStyle(PlainListStyle())
         }
-        .frame(width: 340, height: 580)
+        .frame(width: 340, height: 620)
     }
 }
 
