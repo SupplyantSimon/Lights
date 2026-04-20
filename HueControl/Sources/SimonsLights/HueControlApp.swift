@@ -610,8 +610,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if popover.isShown {
                 popover.performClose(nil)
             } else {
-                // Standard dropdown from menu bar
-                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
+                // Force popover to appear below menu bar with larger offset
+                let rect = NSRect(x: 0, y: -40, width: button.bounds.width, height: button.bounds.height)
+                popover.show(relativeTo: rect, of: button, preferredEdge: .minY)
                 hueService.fetchLights()
                 monkeyService.fetchStatus()
             }
