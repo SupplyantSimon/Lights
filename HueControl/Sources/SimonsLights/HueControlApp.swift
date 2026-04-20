@@ -107,7 +107,7 @@ class AudioAnalyzer: ObservableObject {
             self?.trebleLevel = treble
             
             // Beat detection (bass threshold)
-            if bass > 0.7 && !(self?.beatDetected ?? false) {
+            if bass > 0.5 && !(self?.beatDetected ?? false) {
                 self?.beatDetected = true
                 self?.onBeat?()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -542,6 +542,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let brightness = 150 + Int.random(in: 0...104)
         hueService.lights.forEach { light in
             hueService.setLightBrightness(id: light.id, brightness: brightness)
+        }
+        
+        // Visual feedback
+        DispatchQueue.main.async {
+            self.audioAnalyzer.beatDetected = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                self.audioAnalyzer.beatDetected = false
+            }
         }
     }
     
