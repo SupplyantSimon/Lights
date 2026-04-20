@@ -617,9 +617,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if popover.isShown {
                 popover.performClose(nil)
             } else {
-                // Force popover to appear below menu bar with larger offset
-                let rect = NSRect(x: 0, y: -40, width: button.bounds.width, height: button.bounds.height)
-                popover.show(relativeTo: rect, of: button, preferredEdge: .minY)
+                // Standard dropdown below menu bar
+                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
                 hueService.fetchLights()
                 monkeyService.fetchStatus()
             }
@@ -724,15 +723,6 @@ struct ContentView: View {
                 }
                 
                 Spacer()
-                
-                // Monkey indicator
-                Button(action: { monkeyService.toggle() }) {
-                    Image(systemName: monkeyService.isOn ? "lamp.desk.fill" : "lamp.desk")
-                        .font(.title3)
-                        .foregroundColor(monkeyService.isOn ? .orange : .gray)
-                }
-                .buttonStyle(PlainButtonStyle())
-                .help("Monkey")
                 
                 // Monkey indicator
                 Button(action: { monkeyService.toggle() }) {
