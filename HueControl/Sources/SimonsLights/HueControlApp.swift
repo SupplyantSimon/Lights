@@ -31,7 +31,6 @@ class AudioAnalyzer: ObservableObject {
         let format = inputNode.outputFormat(forBus: 0)
         
         print("🎵 Input format: \(format)")
-        print("🎵 Input available: \(inputNode.isInputFormatBusSupported(0, format: format))")
         
         // Setup FFT
         fftSetup = vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(fftSize), .FORWARD)
