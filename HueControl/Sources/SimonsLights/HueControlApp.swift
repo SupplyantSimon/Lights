@@ -526,7 +526,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 340, height: 560)
+        popover.contentSize = NSSize(width: 340, height: 520)
         popover.behavior = .transient
         popover.contentViewController = NSHostingController(
             rootView: ContentView()
@@ -600,7 +600,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if popover.isShown {
                 popover.performClose(nil)
             } else {
-                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
                 hueService.fetchLights()
                 monkeyService.fetchStatus()
             }
@@ -706,39 +706,11 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                // Music mode button
-                Button(action: { 
-                    print("🎵 Button tapped")
-                    AppDelegate.shared?.toggleMusicMode()
-                }) {
-                    Image(systemName: audioAnalyzer.isListening ? "music.note" : "music.note.list")
-                        .font(.title3)
-                        .foregroundColor(audioAnalyzer.isListening ? .pink : .gray)
-                        .overlay(
-                            Group {
-                                if audioAnalyzer.isListening {
-                                    Circle()
-                                        .stroke(Color.pink, lineWidth: 2)
-                                        .frame(width: 32, height: 32)
-                                }
-                            }
-                        )
-                }
-                .buttonStyle(PlainButtonStyle())
-                .help("Music Mode (\(config.hotkeys.musicMode.uppercased()))")
-                
                 // Monkey indicator
                 Button(action: { monkeyService.toggle() }) {
                     Image(systemName: monkeyService.isOn ? "lamp.desk.fill" : "lamp.desk")
                         .font(.title3)
                         .foregroundColor(monkeyService.isOn ? .orange : .gray)
-                        .overlay(
-                            Group {
-                                if monkeyService.isLoading {
-                                    ProgressView().scaleEffect(0.5)
-                                }
-                            }
-                        )
                 }
                 .buttonStyle(PlainButtonStyle())
                 .help("Monkey")
@@ -827,12 +799,12 @@ struct ContentView: View {
                 }
                 
                 QuickActionButton(
-                    icon: "party.popper.fill",
-                    label: "Party",
-                    color: .purple,
-                    description: config.hotkeys.partyMode.uppercased()
+                    icon: audioAnalyzer.isListening ? "music.note" : "music.note.list",
+                    label: audioAnalyzer.isListening ? "Music ON" : "Music",
+                    color: .pink,
+                    description: config.hotkeys.musicMode.uppercased()
                 ) {
-                    hueService.partyMode()
+                    AppDelegate.shared?.toggleMusicMode()
                 }
                 
                 QuickActionButton(
