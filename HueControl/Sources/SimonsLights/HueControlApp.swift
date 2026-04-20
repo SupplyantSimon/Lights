@@ -24,13 +24,25 @@ class AudioAnalyzer: ObservableObject {
     func startListening() {
         guard !isListening else { return }
         
+        print("🎵 Starting audio engine...")
+        
         audioEngine = AVAudioEngine()
-        guard let audioEngine = audioEngine else { return }
+        guard let audioEngine = audioEngine else { 
+            print("❌ Failed to create audio engine")
+            return 
+        }
         
         let inputNode = audioEngine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
+        print("🎵 Got input node: \(inputNode)")
         
-        print("🎵 Input format: \(format)")
+        let format = inputNode.outputFormat(forBus: 0)
+        print("🎵 Input format: \(format), channels: \(format.channelCount), sampleRate: \(format.sampleRate)")
+        
+        // Check if we have permission by trying to get input format
+        if format.channelCount == 0 {
+            print("❌ No audio input available - check microphone permissions")
+            return
+        }
         
         // Setup FFT
         fftSetup = vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(fftSize), .FORWARD)
@@ -39,7 +51,6 @@ class AudioAnalyzer: ObservableObject {
             guard let self = self else { return }
             let samples = buffer.frameLength
             if samples > 0 {
-                print("🎵 Got \(samples) audio samples")
                 self.processAudioBuffer(buffer)
             }
         }
@@ -599,10 +610,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if popover.isShown {
                 popover.performClose(nil)
             } else {
-                // Position well below the menu bar
-                var rect = button.bounds
-                rect.origin.y += 24  // Push down below menu bar
-                popover.show(relativeTo: rect, of: button, preferredEdge: .minY)
+                // Standard dropdown from menu bar
+                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
                 hueService.fetchLights()
                 monkeyService.fetchStatus()
             }
