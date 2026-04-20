@@ -207,11 +207,11 @@ struct HueLight: Codable, Identifiable, Equatable {
 }
 
 struct LightState: Codable {
-    var on: Bool
-    var bri: Int?
-    var hue: Int?
-    var sat: Int?
-    var ct: Int?
+    var on: Bool = false
+    var bri: Int? = nil
+    var hue: Int? = nil
+    var sat: Int? = nil
+    var ct: Int? = nil
 }
 
 struct HueLightData: Codable {
