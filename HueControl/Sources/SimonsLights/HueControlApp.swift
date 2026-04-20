@@ -342,13 +342,15 @@ class HueService: ObservableObject {
     @Published var isLoading = false
     
     private let baseURL: String
+    private let allowedLightNames: [String]
     
     let rightLightName = "Unit"
     let leftLightName = "TV Left"
     let bigboyLightName = "BigBoy"
     
-    init(bridgeIP: String, apiKey: String) {
+    init(bridgeIP: String, apiKey: String, allowedLights: [String]) {
         self.baseURL = "http://\(bridgeIP)/api/\(apiKey)"
+        self.allowedLightNames = allowedLights
         fetchLights()
     }
     
