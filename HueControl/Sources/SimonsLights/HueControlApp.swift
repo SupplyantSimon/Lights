@@ -487,6 +487,8 @@ class HueService: ObservableObject {
 
 // MARK: - App Delegate
 class AppDelegate: NSObject, NSApplicationDelegate {
+    static var shared: AppDelegate!
+    
     var statusItem: NSStatusItem!
     var popover: NSPopover!
     var hueService: HueService!
@@ -499,6 +501,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var isMusicMode = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppDelegate.shared = self
+        
         config = ConfigLoader.load()
         
         hueService = HueService(bridgeIP: config.bridgeIP, apiKey: config.apiKey, allowedLights: config.lights)
@@ -704,9 +708,8 @@ struct ContentView: View {
                 
                 // Music mode button
                 Button(action: { 
-                    if let delegate = NSApp.delegate as? AppDelegate {
-                        delegate.toggleMusicMode()
-                    }
+                    print("🎵 Button tapped")
+                    AppDelegate.shared?.toggleMusicMode()
                 }) {
                     Image(systemName: audioAnalyzer.isListening ? "music.note" : "music.note.list")
                         .font(.title3)
