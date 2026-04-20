@@ -58,9 +58,8 @@ class AudioAnalyzer: ObservableObject {
         audioEngine?.stop()
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine = nil
-        if let setup = fftSetup {
-            vDSP_DFT_DestroySetupD(setup)
-        }
+        // Don't try to destroy FFT setup - just nil it
+        fftSetup = nil
         isListening = false
         print("🎵 Music mode stopped")
     }
@@ -600,7 +599,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if popover.isShown {
                 popover.performClose(nil)
             } else {
-                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
+                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
                 hueService.fetchLights()
                 monkeyService.fetchStatus()
             }
