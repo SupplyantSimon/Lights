@@ -599,9 +599,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if popover.isShown {
                 popover.performClose(nil)
             } else {
-                // Position below the menu bar with offset
+                // Position well below the menu bar
                 var rect = button.bounds
-                rect.origin.y -= 8  // Small offset
+                rect.origin.y += 24  // Push down below menu bar
                 popover.show(relativeTo: rect, of: button, preferredEdge: .minY)
                 hueService.fetchLights()
                 monkeyService.fetchStatus()
