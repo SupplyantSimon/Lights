@@ -19,31 +19,25 @@ class AudioAnalyzer: ObservableObject {
     private let fftSize = 1024
     
     var onBeat: (() -> Void)?
-    var onFrequencyUpdate: ((bass: Float, mid: Float, treble: Float) -> Void)?
+    var onFrequencyUpdate: ((_ bass: Float, _ mid: Float, _ treble: Float) -> Void)?
     
     func startListening() {
         guard !isListening else { return }
         
-        let audioSession = AVAudioSession.sharedInstance()
+        audioEngine = AVAudioEngine()
+        guard let audioEngine = audioEngine else { return }
+        
+        let inputNode = audioEngine.inputNode
+        let format = inputNode.outputFormat(forBus: 0)
+        
+        // Setup FFT
+        fftSetup = vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(fftSize), .FORWARD)
+        
+        inputNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(fftSize), format: format) { [weak self] buffer, _ in
+            self?.processAudioBuffer(buffer)
+        }
         
         do {
-            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
-            try audioSession.setActive(true)
-            
-            audioEngine = AVAudioEngine()
-            guard let audioEngine = audioEngine else { return }
-            
-            let inputNode = audioEngine.inputNode
-            let format = inputNode.outputFormat(forBus: 0)
-            
-            // Setup FFT
-            let log2n = vDSP_Length(log2(Float(fftSize)))
-            fftSetup = vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(fftSize), .FORWARD)
-            
-            inputNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(fftSize), format: format) { [weak self] buffer, _ in
-                self?.processAudioBuffer(buffer)
-            }
-            
             try audioEngine.start()
             isListening = true
             print("🎵 Music mode active - listening to audio")
@@ -76,17 +70,10 @@ class AudioAnalyzer: ObservableObject {
         vDSP_hann_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
         vDSP_vmul(samples, 1, window, 1, &samples, 1, vDSP_Length(min(frameLength, fftSize)))
         
-        // Perform FFT
-        var real = [Float](repeating: 0, count: fftSize / 2)
-        var imag = [Float](repeating: 0, count: fftSize / 2)
-        
-        samples.withUnsafeBufferPointer { samplesPtr in
-            real.withUnsafeMutableBufferPointer { realPtr in
-                imag.withUnsafeMutableBufferPointer { imagPtr in
-                    var splitComplex = DSPSplitComplex(realp: realPtr.baseAddress!, imagp: imagPtr.baseAddress!)
-                    vDSP_ctoz(<#DSPComplex#>, <#vDSP_Stride#>, <#DSPSplitComplex#>, <#vDSP_Stride#>, <#vDSP_Length#>)
-                }
-            }
+        // Simplified frequency analysis using time-domain energy bands
+        var magnitudes = [Float](repeating: 0, count: min(frameLength, fftSize))
+        for i in 0..<magnitudes.count {
+            magnitudes[i] = abs(samples[i])
         }
         
         // Simplified frequency analysis (bass, mid, treble)
@@ -128,13 +115,13 @@ class AudioAnalyzer: ObservableObject {
                 }
             }
             
-            self?.onFrequencyUpdate?(bass: bass, mid: mid, treble: treble)
+            self?.onFrequencyUpdate?(bass, mid, treble)
         }
     }
 }
 
 // MARK: - Configuration
-struct AppConfig: Codable {
+class AppConfig: Codable, ObservableObject {
     let bridgeIP: String
     let apiKey: String
     let tuya: TuyaConfig
