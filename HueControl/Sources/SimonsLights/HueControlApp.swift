@@ -599,7 +599,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if popover.isShown {
                 popover.performClose(nil)
             } else {
-                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
+                // Position below the menu bar with offset
+                var rect = button.bounds
+                rect.origin.y -= 8  // Small offset
+                popover.show(relativeTo: rect, of: button, preferredEdge: .minY)
                 hueService.fetchLights()
                 monkeyService.fetchStatus()
             }
@@ -704,6 +707,15 @@ struct ContentView: View {
                 }
                 
                 Spacer()
+                
+                // Monkey indicator
+                Button(action: { monkeyService.toggle() }) {
+                    Image(systemName: monkeyService.isOn ? "lamp.desk.fill" : "lamp.desk")
+                        .font(.title3)
+                        .foregroundColor(monkeyService.isOn ? .orange : .gray)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .help("Monkey")
                 
                 // Monkey indicator
                 Button(action: { monkeyService.toggle() }) {
