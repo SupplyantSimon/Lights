@@ -89,37 +89,38 @@ class AudioAnalyzer: ObservableObject {
         vDSP_hann_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
         vDSP_vmul(samples, 1, window, 1, &samples, 1, vDSP_Length(min(frameLength, fftSize)))
         
-        // Simplified frequency analysis using time-domain energy bands
+        // Calculate magnitudes (squared for better peak detection)
         var magnitudes = [Float](repeating: 0, count: min(frameLength, fftSize))
         for i in 0..<magnitudes.count {
-            magnitudes[i] = abs(samples[i])
+            let val = samples[i]
+            magnitudes[i] = val * val  // Square to emphasize peaks
         }
         
-        // Frequency ranges adjusted for Mac internal mic
-        // Mac mics struggle with sub-bass (<100Hz), focus on what they CAN hear
-        let bassRange = 0..<20       // ~0-860Hz (sub + low-mid)
-        let midRange = 20..<80       // ~860-3440Hz (midrange - mics hear this well)
-        let trebleRange = 80..<150   // ~3440-6450Hz (treble)
+        // Frequency bins for 1024 FFT at 44.1kHz: each bin = ~43Hz
+        // Bin 0 = DC (skip), Bin 1 = 43Hz, Bin 2 = 86Hz, Bin 3 = 129Hz etc
+        let bassRange = 1..<8        // ~43-344Hz (low/sub - where 12" sub lives)
+        let midRange = 8..<40        // ~344-1720Hz (mids)
+        let trebleRange = 40..<100   // ~1720-4300Hz (highs)
         
         var bass: Float = 0
         var mid: Float = 0
         var treble: Float = 0
         
-        // Calculate magnitudes
-        for i in bassRange where i < samples.count {
-            bass += abs(samples[i])
+        // Calculate magnitudes from squared values
+        for i in bassRange where i < magnitudes.count {
+            bass += magnitudes[i]
         }
-        for i in midRange where i < samples.count {
-            mid += abs(samples[i])
+        for i in midRange where i < magnitudes.count {
+            mid += magnitudes[i]
         }
-        for i in trebleRange where i < samples.count {
-            treble += abs(samples[i])
+        for i in trebleRange where i < magnitudes.count {
+            treble += magnitudes[i]
         }
         
-        // Normalize - big boost since mic input is quiet
-        bass = min(bass / Float(bassRange.count) * 150, 1.0)   // heavy boost
-        mid = min(mid / Float(midRange.count) * 80, 1.0)       // big boost
-        treble = min(treble / Float(trebleRange.count) * 20, 1.0) // moderate
+        // Normalize with massive boost for low bins
+        bass = min(sqrt(bass / Float(bassRange.count)) * 200, 1.0)   // sqrt to undo square, then boost
+        mid = min(sqrt(mid / Float(midRange.count)) * 60, 1.0)
+        treble = min(sqrt(treble / Float(trebleRange.count)) * 15, 1.0)
         
         // Boost very low signals
         if bass < 0.1 { bass *= 4 }
@@ -218,7 +219,7 @@ class ConfigLoader {
                 ColorPreset(name: "Green", hue: 21845, sat: 254),
                 ColorPreset(name: "Blue", hue: 43690, sat: 254)
             ],
-            lights: ["Unit", "TV Left", "BigBoy"]
+            lights: ["Right", "Left", "BigBoy"]
         )
     }
 }
@@ -369,8 +370,8 @@ class HueService: ObservableObject {
     private let baseURL: String
     private let allowedLightNames: [String]
     
-    let rightLightName = "Unit"
-    let leftLightName = "TV Left"
+    let rightLightName = "Right"
+    let leftLightName = "Left"
     let bigboyLightName = "BigBoy"
     
     init(bridgeIP: String, apiKey: String, allowedLights: [String]) {
@@ -389,6 +390,14 @@ class HueService: ObservableObject {
     
     var bigboyLight: HueLight? {
         lights.first { $0.name == bigboyLightName }
+    }
+    
+    func displayName(for light: HueLight) -> String {
+        switch light.name {
+        case "Unit": return "Right"
+        case "TV Left": return "Left"
+        default: return light.name
+        }
     }
     
     func fetchLights() {
@@ -717,7 +726,7 @@ struct ContentView: View {
                             .foregroundColor(.red)
                             .lineLimit(1)
                     } else if hueService.isConnected {
-                        Text("Unit (R) | TV Left (L) | BigBoy | Monkey")
+                        Text("Left (L) | Right (R) | BigBoy | Monkey")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -957,7 +966,7 @@ struct LightRow: View {
                     .frame(width: 8, height: 8)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(light.name)
+                    Text(displayName(for: light))
                         .font(.system(size: 13, weight: .medium))
                     
                     if light.state.on, let bri = light.state.bri {
