@@ -115,23 +115,23 @@ class AudioAnalyzer: ObservableObject {
             treble += abs(samples[i])
         }
         
-        // Normalize with higher sensitivity
-        bass = min(bass / Float(bassRange.count) * 20, 1.0)
-        mid = min(mid / Float(midRange.count) * 10, 1.0)
-        treble = min(treble / Float(trebleRange.count) * 6, 1.0)
+        // Normalize with 2x sensitivity (doubled from before)
+        bass = min(bass / Float(bassRange.count) * 40, 1.0)
+        mid = min(mid / Float(midRange.count) * 20, 1.0)
+        treble = min(treble / Float(trebleRange.count) * 12, 1.0)
         
         // Boost very low signals
-        if bass < 0.05 { bass *= 3 }
-        if mid < 0.05 { mid *= 3 }
-        if treble < 0.05 { treble *= 3 }
+        if bass < 0.1 { bass *= 4 }
+        if mid < 0.1 { mid *= 4 }
+        if treble < 0.1 { treble *= 4 }
         
         DispatchQueue.main.async { [weak self] in
             self?.bassLevel = bass
             self?.midLevel = mid
             self?.trebleLevel = treble
             
-            // Beat detection (bass threshold) - lowered for better sensitivity
-            if bass > 0.3 && !(self?.beatDetected ?? false) {
+            // Beat detection (bass threshold) - lowered for 2x sensitivity
+            if bass > 0.2 && !(self?.beatDetected ?? false) {
                 self?.beatDetected = true
                 self?.onBeat?()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
