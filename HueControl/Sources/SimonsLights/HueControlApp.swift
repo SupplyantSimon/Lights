@@ -596,17 +596,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func handleMusicBeat() {
         guard isMusicMode else { return }
         
-        // Pulse brightness on beat
-        let brightness = 150 + Int.random(in: 0...104)
-        hueService.lights.forEach { light in
-            hueService.setLightBrightness(id: light.id, brightness: brightness)
-        }
-        
-        // Visual feedback
-        DispatchQueue.main.async {
+        // Double-check on main queue before sending any commands
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, self.isMusicMode else { return }
+            
+            // Pulse brightness on beat
+            let brightness = 150 + Int.random(in: 0...104)
+            self.hueService.lights.forEach { light in
+                self.hueService.setLightBrightness(id: light.id, brightness: brightness)
+            }
+            
+            // Visual feedback
             self.audioAnalyzer.beatDetected = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                self.audioAnalyzer.beatDetected = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                self?.audioAnalyzer.beatDetected = false
             }
         }
     }
@@ -614,16 +617,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func handleFrequencyUpdate(bass: Float, mid: Float, treble: Float) {
         guard isMusicMode else { return }
         
-        // Cycle color based on music
-        musicModeColor += 0.01 + (bass * 0.05)
-        if musicModeColor > 1.0 { musicModeColor -= 1.0 }
-        
-        let hue = Int(musicModeColor * 65535)
-        let saturation = 150 + Int(bass * 104)
-        
-        // Only update occasionally to avoid flooding
-        if Int(musicModeColor * 100) % 5 == 0 {
-            hueService.setAllLightsColor(hue: hue, saturation: saturation)
+        // Double-check on main queue before sending any commands
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, self.isMusicMode else { return }
+            
+            // Cycle color based on music
+            self.musicModeColor += 0.01 + (bass * 0.05)
+            if self.musicModeColor > 1.0 { self.musicModeColor -= 1.0 }
+            
+            let hue = Int(self.musicModeColor * 65535)
+            let saturation = 150 + Int(bass * 104)
+            
+            // Only update occasionally to avoid flooding
+            if Int(self.musicModeColor * 100) % 5 == 0 {
+                self.hueService.setAllLightsColor(hue: hue, saturation: saturation)
+            }
         }
     }
     
