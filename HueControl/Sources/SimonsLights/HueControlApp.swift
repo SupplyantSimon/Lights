@@ -117,10 +117,15 @@ class AudioAnalyzer: ObservableObject {
             treble += magnitudes[i]
         }
         
-        // Normalize with massive boost for low bins
-        bass = min(sqrt(bass / Float(bassRange.count)) * 200, 1.0)   // sqrt to undo square, then boost
-        mid = min(sqrt(mid / Float(midRange.count)) * 60, 1.0)
-        treble = min(sqrt(treble / Float(trebleRange.count)) * 15, 1.0)
+        // Normalize - massive boost since mic input is very quiet
+        bass = min(sqrt(bass / Float(bassRange.count)) * 400, 1.0)   // 2x boost
+        mid = min(sqrt(mid / Float(midRange.count)) * 120, 1.0)      // 2x boost
+        treble = min(sqrt(treble / Float(trebleRange.count)) * 30, 1.0) // 2x boost
+        
+        // Boost very low signals even more
+        if bass < 0.2 { bass *= 5 }
+        if mid < 0.2 { mid *= 5 }
+        if treble < 0.2 { treble *= 5 }
         
         // Boost very low signals
         if bass < 0.1 { bass *= 4 }
@@ -132,8 +137,8 @@ class AudioAnalyzer: ObservableObject {
             self?.midLevel = mid
             self?.trebleLevel = treble
             
-            // Beat detection (bass threshold) - lowered for 2x sensitivity
-            if bass > 0.2 && !(self?.beatDetected ?? false) {
+            // Beat detection (bass threshold) - very low for quiet mics
+            if bass > 0.15 && !(self?.beatDetected ?? false) {
                 self?.beatDetected = true
                 self?.onBeat?()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
