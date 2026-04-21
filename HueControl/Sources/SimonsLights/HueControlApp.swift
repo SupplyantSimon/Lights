@@ -80,36 +80,41 @@ class AudioAnalyzer: ObservableObject {
     private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
         guard let channelData = buffer.floatChannelData?[0] else { return }
         let frameLength = Int(buffer.frameLength)
+        let samples = Array(UnsafeBufferPointer(start: channelData, count: frameLength))
         
-        // Convert to array
-        var samples = Array(UnsafeBufferPointer(start: channelData, count: frameLength))
+        // BASS: Use overall amplitude (sub hits create room pressure spikes mic CAN hear)
+        var totalAmplitude: Float = 0
+        var peakAmplitude: Float = 0
+        for sample in samples {
+            let absVal = abs(sample)
+            totalAmplitude += absVal
+            if absVal > peakAmplitude { peakAmplitude = absVal }
+        }
+        let avgAmplitude = totalAmplitude / Float(samples.count)
         
-        // Apply Hanning window
+        // Bass from room volume + peak detection
+        var bass = min(avgAmplitude * 600, 1.0)  // massive boost on average volume
+        bass = max(bass, min(peakAmplitude * 300, 1.0))  // peak catches transients
+        
+        // Apply Hanning window for FFT (mid/treble only)
+        var windowedSamples = samples
         var window = [Float](repeating: 0, count: fftSize)
         vDSP_hann_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
-        vDSP_vmul(samples, 1, window, 1, &samples, 1, vDSP_Length(min(frameLength, fftSize)))
+        vDSP_vmul(windowedSamples, 1, window, 1, &windowedSamples, 1, vDSP_Length(min(frameLength, fftSize)))
         
-        // Calculate magnitudes (squared for better peak detection)
+        // MID & TREBLE: Use FFT bins
         var magnitudes = [Float](repeating: 0, count: min(frameLength, fftSize))
         for i in 0..<magnitudes.count {
-            let val = samples[i]
-            magnitudes[i] = val * val  // Square to emphasize peaks
+            magnitudes[i] = abs(windowedSamples[i])
         }
         
         // Frequency bins for 1024 FFT at 44.1kHz: each bin = ~43Hz
-        // Bin 0 = DC (skip), Bin 1 = 43Hz, Bin 2 = 86Hz, Bin 3 = 129Hz etc
-        let bassRange = 1..<8        // ~43-344Hz (low/sub - where 12" sub lives)
-        let midRange = 8..<40        // ~344-1720Hz (mids)
-        let trebleRange = 40..<100   // ~1720-4300Hz (highs)
+        let midRange = 5..<35       // ~215-1505Hz (mids - where vocals/instruments live)
+        let trebleRange = 35..<80   // ~1505-3440Hz (highs)
         
-        var bass: Float = 0
         var mid: Float = 0
         var treble: Float = 0
         
-        // Calculate magnitudes from squared values
-        for i in bassRange where i < magnitudes.count {
-            bass += magnitudes[i]
-        }
         for i in midRange where i < magnitudes.count {
             mid += magnitudes[i]
         }
@@ -117,28 +122,21 @@ class AudioAnalyzer: ObservableObject {
             treble += magnitudes[i]
         }
         
-        // Normalize - massive boost since mic input is very quiet
-        bass = min(sqrt(bass / Float(bassRange.count)) * 400, 1.0)   // 2x boost
-        mid = min(sqrt(mid / Float(midRange.count)) * 120, 1.0)      // 2x boost
-        treble = min(sqrt(treble / Float(trebleRange.count)) * 30, 1.0) // 2x boost
+        mid = min((mid / Float(midRange.count)) * 100, 1.0)
+        treble = min((treble / Float(trebleRange.count)) * 40, 1.0)
         
-        // Boost very low signals even more
-        if bass < 0.2 { bass *= 5 }
-        if mid < 0.2 { mid *= 5 }
-        if treble < 0.2 { treble *= 5 }
-        
-        // Boost very low signals
-        if bass < 0.1 { bass *= 4 }
-        if mid < 0.1 { mid *= 4 }
-        if treble < 0.1 { treble *= 4 }
+        // Boost low signals
+        if bass < 0.3 { bass *= 3 }
+        if mid < 0.3 { mid *= 3 }
+        if treble < 0.3 { treble *= 3 }
         
         DispatchQueue.main.async { [weak self] in
             self?.bassLevel = bass
             self?.midLevel = mid
             self?.trebleLevel = treble
             
-            // Beat detection (bass threshold) - very low for quiet mics
-            if bass > 0.15 && !(self?.beatDetected ?? false) {
+            // Beat detection - trigger on bass volume
+            if bass > 0.2 && !(self?.beatDetected ?? false) {
                 self?.beatDetected = true
                 self?.onBeat?()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
