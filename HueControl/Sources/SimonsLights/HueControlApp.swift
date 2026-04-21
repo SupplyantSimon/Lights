@@ -68,12 +68,21 @@ class AudioAnalyzer: ObservableObject {
     }
     
     func stopListening() {
-        audioEngine?.stop()
-        audioEngine?.inputNode.removeTap(onBus: 0)
-        audioEngine = nil
-        // Don't try to destroy FFT setup - just nil it
+        guard let audioEngine = audioEngine else { return }
+        
+        // Remove tap BEFORE stopping engine
+        audioEngine.inputNode.removeTap(onBus: 0)
+        audioEngine.stop()
+        
+        self.audioEngine = nil
         fftSetup = nil
         isListening = false
+        
+        // Reset levels
+        bassLevel = 0
+        midLevel = 0
+        trebleLevel = 0
+        
         print("🎵 Music mode stopped")
     }
     
@@ -92,9 +101,14 @@ class AudioAnalyzer: ObservableObject {
         }
         let avgAmplitude = totalAmplitude / Float(samples.count)
         
-        // Bass from room volume + peak detection
-        var bass = min(avgAmplitude * 600, 1.0)  // massive boost on average volume
-        bass = max(bass, min(peakAmplitude * 300, 1.0))  // peak catches transients
+        // BASS: Use overall amplitude with noise gate
+        let noiseFloor: Float = 0.008  // subtract typical room noise
+        let avgAmplitudeClean = max(avgAmplitude - noiseFloor, 0)
+        let peakAmplitudeClean = max(peakAmplitude - noiseFloor, 0)
+        
+        // Bass from room volume + peak detection (with noise gate)
+        var bass = min(avgAmplitudeClean * 800, 1.0)
+        bass = max(bass, min(peakAmplitudeClean * 400, 1.0))
         
         // Apply Hanning window for FFT (mid/treble only)
         var windowedSamples = samples
