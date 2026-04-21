@@ -230,6 +230,14 @@ struct HueLight: Codable, Identifiable, Equatable {
     var name: String
     var state: LightState
     
+    var displayName: String {
+        switch name {
+        case "Unit": return "Right"
+        case "TV Left": return "Left"
+        default: return name
+        }
+    }
+    
     static func == (lhs: HueLight, rhs: HueLight) -> Bool {
         return lhs.id == rhs.id
     }
@@ -966,7 +974,7 @@ struct LightRow: View {
                     .frame(width: 8, height: 8)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(displayName(for: light))
+                    Text(light.displayName)
                         .font(.system(size: 13, weight: .medium))
                     
                     if light.state.on, let bri = light.state.bri {
