@@ -392,6 +392,8 @@ class HueService: ObservableObject {
     @Published var lastError: String?
     @Published var isLoading = false
     
+    var ignoreFetches = false
+    
     private let baseURL: String
     private let allowedLightNames: [String]
     
@@ -426,6 +428,7 @@ class HueService: ObservableObject {
     }
     
     func fetchLights() {
+        guard !ignoreFetches else { return }
         guard let url = URL(string: "\(baseURL)/lights") else { return }
         
         isLoading = true
@@ -652,6 +655,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             print("🎵 Stopping audio analyzer...")
             audioAnalyzer.stopListening()
+            // Ignore fetches for 2 seconds to let queued commands settle
+            hueService.ignoreFetches = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                self?.hueService.ignoreFetches = false
+                self?.hueService.fetchLights()
+            }
             // Nil out callbacks so pending async blocks do nothing
             audioAnalyzer.onBeat = nil
             audioAnalyzer.onFrequencyUpdate = nil
