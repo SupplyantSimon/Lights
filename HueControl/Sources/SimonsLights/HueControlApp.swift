@@ -96,9 +96,10 @@ class AudioAnalyzer: ObservableObject {
         }
         
         // Simplified frequency analysis (bass, mid, treble)
-        let bassRange = 0..<10      // ~0-430Hz
-        let midRange = 10..<100     // ~430-4300Hz  
-        let trebleRange = 100..<200 // ~4300-8600Hz
+        // Bass focused on sub frequencies (0-5 = ~0-215Hz for 12" sub)
+        let bassRange = 0..<5       // ~0-215Hz (sub bass)
+        let midRange = 5..<50       // ~215-2150Hz  
+        let trebleRange = 50..<150  // ~2150-6450Hz
         
         var bass: Float = 0
         var mid: Float = 0
@@ -115,10 +116,10 @@ class AudioAnalyzer: ObservableObject {
             treble += abs(samples[i])
         }
         
-        // Normalize with 2x sensitivity (doubled from before)
-        bass = min(bass / Float(bassRange.count) * 40, 1.0)
-        mid = min(mid / Float(midRange.count) * 20, 1.0)
-        treble = min(treble / Float(trebleRange.count) * 12, 1.0)
+        // Normalize with adjusted sensitivity
+        bass = min(bass / Float(bassRange.count) * 100, 1.0)   // 2.5x boost for sub
+        mid = min(mid / Float(midRange.count) * 40, 1.0)       // 2x boost
+        treble = min(treble / Float(trebleRange.count) * 12, 1.0) // keep as is
         
         // Boost very low signals
         if bass < 0.1 { bass *= 4 }
