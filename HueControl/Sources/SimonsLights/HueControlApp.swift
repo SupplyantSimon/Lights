@@ -106,9 +106,9 @@ class AudioAnalyzer: ObservableObject {
         let avgAmplitudeClean = max(avgAmplitude - noiseFloor, 0)
         let peakAmplitudeClean = max(peakAmplitude - noiseFloor, 0)
         
-        // Bass from room volume + peak detection (much less sensitive)
-        var bass = min(avgAmplitudeClean * 15, 1.0)
-        bass = max(bass, min(peakAmplitudeClean * 8, 1.0))
+        // Bass from room volume + peak detection (half sensitivity)
+        var bass = min(avgAmplitudeClean * 7, 1.0)
+        bass = max(bass, min(peakAmplitudeClean * 4, 1.0))
         
         // Soft compression: reduce values above 0.7
         if bass > 0.7 {
@@ -141,7 +141,7 @@ class AudioAnalyzer: ObservableObject {
             treble += magnitudes[i]
         }
         
-        mid = min((mid / Float(midRange.count)) * 200, 1.0)
+        mid = min((mid / Float(midRange.count)) * 300, 1.0)
         treble = min((treble / Float(trebleRange.count)) * 40, 1.0)
         
         // Boost low signals
