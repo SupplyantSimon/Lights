@@ -95,11 +95,11 @@ class AudioAnalyzer: ObservableObject {
             magnitudes[i] = abs(samples[i])
         }
         
-        // Simplified frequency analysis (bass, mid, treble)
-        // Bass focused on sub frequencies (0-5 = ~0-215Hz for 12" sub)
-        let bassRange = 0..<5       // ~0-215Hz (sub bass)
-        let midRange = 5..<50       // ~215-2150Hz  
-        let trebleRange = 50..<150  // ~2150-6450Hz
+        // Frequency ranges adjusted for Mac internal mic
+        // Mac mics struggle with sub-bass (<100Hz), focus on what they CAN hear
+        let bassRange = 0..<20       // ~0-860Hz (sub + low-mid)
+        let midRange = 20..<80       // ~860-3440Hz (midrange - mics hear this well)
+        let trebleRange = 80..<150   // ~3440-6450Hz (treble)
         
         var bass: Float = 0
         var mid: Float = 0
@@ -116,10 +116,10 @@ class AudioAnalyzer: ObservableObject {
             treble += abs(samples[i])
         }
         
-        // Normalize with adjusted sensitivity
-        bass = min(bass / Float(bassRange.count) * 100, 1.0)   // 2.5x boost for sub
-        mid = min(mid / Float(midRange.count) * 40, 1.0)       // 2x boost
-        treble = min(treble / Float(trebleRange.count) * 12, 1.0) // keep as is
+        // Normalize - big boost since mic input is quiet
+        bass = min(bass / Float(bassRange.count) * 150, 1.0)   // heavy boost
+        mid = min(mid / Float(midRange.count) * 80, 1.0)       // big boost
+        treble = min(treble / Float(trebleRange.count) * 20, 1.0) // moderate
         
         // Boost very low signals
         if bass < 0.1 { bass *= 4 }
