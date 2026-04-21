@@ -106,9 +106,9 @@ class AudioAnalyzer: ObservableObject {
         let avgAmplitudeClean = max(avgAmplitude - noiseFloor, 0)
         let peakAmplitudeClean = max(peakAmplitude - noiseFloor, 0)
         
-        // Bass from room volume + peak detection (with noise gate)
-        var bass = min(avgAmplitudeClean * 800, 1.0)
-        bass = max(bass, min(peakAmplitudeClean * 400, 1.0))
+        // Bass from room volume + peak detection (10x less sensitive)
+        var bass = min(avgAmplitudeClean * 80, 1.0)
+        bass = max(bass, min(peakAmplitudeClean * 40, 1.0))
         
         // Apply Hanning window for FFT (mid/treble only)
         var windowedSamples = samples
@@ -561,13 +561,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         monkeyService = MonkeyService(config: config.tuya)
         audioAnalyzer = AudioAnalyzer()
         
-        // Setup audio callbacks
-        audioAnalyzer.onBeat = { [weak self] in
-            self?.handleMusicBeat()
-        }
-        audioAnalyzer.onFrequencyUpdate = { [weak self] bass, mid, treble in
-            self?.handleFrequencyUpdate(bass: bass, mid: mid, treble: treble)
-        }
+        // Setup audio callbacks - set up when music mode turns on, nil when off
+        // (see toggleMusicMode)
         
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
@@ -638,11 +633,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         print("🎵 isMusicMode = \(isMusicMode)")
         if isMusicMode {
             print("🎵 Starting audio analyzer...")
+            audioAnalyzer.onBeat = { [weak self] in
+                self?.handleMusicBeat()
+            }
+            audioAnalyzer.onFrequencyUpdate = { [weak self] bass, mid, treble in
+                self?.handleFrequencyUpdate(bass: bass, mid: mid, treble: treble)
+            }
             audioAnalyzer.startListening()
             showNotification(title: "🎵 Music Mode", message: "ON - Lights reacting to audio")
         } else {
             print("🎵 Stopping audio analyzer...")
             audioAnalyzer.stopListening()
+            // Nil out callbacks so pending async blocks do nothing
+            audioAnalyzer.onBeat = nil
+            audioAnalyzer.onFrequencyUpdate = nil
             showNotification(title: "🎵 Music Mode", message: "OFF")
         }
     }
