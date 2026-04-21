@@ -141,7 +141,7 @@ class AudioAnalyzer: ObservableObject {
             treble += magnitudes[i]
         }
         
-        mid = min((mid / Float(midRange.count)) * 100, 1.0)
+        mid = min((mid / Float(midRange.count)) * 200, 1.0)
         treble = min((treble / Float(trebleRange.count)) * 40, 1.0)
         
         // Boost low signals
