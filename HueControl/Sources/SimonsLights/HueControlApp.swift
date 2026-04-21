@@ -102,13 +102,18 @@ class AudioAnalyzer: ObservableObject {
         let avgAmplitude = totalAmplitude / Float(samples.count)
         
         // BASS: Use overall amplitude with noise gate
-        let noiseFloor: Float = 0.008  // subtract typical room noise
+        let noiseFloor: Float = 0.015  // higher noise floor for room mic
         let avgAmplitudeClean = max(avgAmplitude - noiseFloor, 0)
         let peakAmplitudeClean = max(peakAmplitude - noiseFloor, 0)
         
-        // Bass from room volume + peak detection (half sensitivity)
-        var bass = min(avgAmplitudeClean * 40, 1.0)
-        bass = max(bass, min(peakAmplitudeClean * 20, 1.0))
+        // Bass from room volume + peak detection (much less sensitive)
+        var bass = min(avgAmplitudeClean * 15, 1.0)
+        bass = max(bass, min(peakAmplitudeClean * 8, 1.0))
+        
+        // Soft compression: reduce values above 0.7
+        if bass > 0.7 {
+            bass = 0.7 + (bass - 0.7) * 0.3
+        }
         
         // Apply Hanning window for FFT (mid/treble only)
         var windowedSamples = samples
