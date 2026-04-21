@@ -618,7 +618,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 popover.performClose(nil)
             } else {
                 // Standard dropdown below menu bar
-                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
                 hueService.fetchLights()
                 monkeyService.fetchStatus()
             }
