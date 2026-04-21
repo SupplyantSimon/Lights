@@ -106,9 +106,9 @@ class AudioAnalyzer: ObservableObject {
         let avgAmplitudeClean = max(avgAmplitude - noiseFloor, 0)
         let peakAmplitudeClean = max(peakAmplitude - noiseFloor, 0)
         
-        // Bass from room volume + peak detection (10x less sensitive)
-        var bass = min(avgAmplitudeClean * 80, 1.0)
-        bass = max(bass, min(peakAmplitudeClean * 40, 1.0))
+        // Bass from room volume + peak detection (half sensitivity)
+        var bass = min(avgAmplitudeClean * 40, 1.0)
+        bass = max(bass, min(peakAmplitudeClean * 20, 1.0))
         
         // Apply Hanning window for FFT (mid/treble only)
         var windowedSamples = samples
